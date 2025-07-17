@@ -1,26 +1,31 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
+import './config';
+import express from 'express';
 import { QueueManager } from './queue/QueueManager';
-import { queueHandlers } from './queue/queue.config';
-import { EventName, EventNameForPush } from './constants/EventNames';
-import AWS from 'aws-sdk';
+import { EventNameForPush } from './constants/EventNames';
 import { IPayloadForPush } from './constants/Interfaces';
 
-const CHUNK_QUEUE_URL = process.env.CHUNK_QUEUE_URL!;
-const EMBEDDING_RESULT_QUEUE_URL = process.env.EMBEDDING_RESULT_QUEUE_URL!;
+async function init() {
+  const queue = QueueManager.getInstance();
+  await queue.init()
 
-const queue = QueueManager.getInstance();
+  // 3. Send Test CHUNK_FILE Event to Python via Queue
+  const testPayload: IPayloadForPush = {
+    chunk: 'test_chunk',
+    fileName: "fileName",
+    fileExtension: ".ts",
+  };
 
-queue.init()
+  await queue.pushMessageToQueue(EventNameForPush.CHUNK, testPayload, false)
+    .then(() => console.log('[App] Test CHUNK_FILE event pushed'))
+    .catch((err) => console.error('[App] Failed to push test CHUNK_FILE event:', err));
+}
 
-// 3. Send Test CHUNK_FILE Event to Python via Queue
-const testPayload: IPayloadForPush = {
-  chunk: 'test_chunk',
-  fileName: "fileName",
-  fileExtension: ".ts",
-};
 
-queue.pushMessageToQueue(EventNameForPush.CHUNK, testPayload, false)
-  .then(() => console.log('[App] Test CHUNK_FILE event pushed'))
-  .catch((err) => console.error('[App] Failed to push test CHUNK_FILE event:', err));
+// const app = express();
+// app.use(express.json());
+
+// const PORT = process.env.PORT || 3000;
+
+// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+init()

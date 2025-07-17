@@ -1,18 +1,26 @@
+import { Config } from "../config";
 import { EventNameForPush } from "../constants/EventNames";
 import { IPayloadForPush } from "../constants/Interfaces";
 import { Utils } from "../utils/Utils";
-import { queueHandlers, queuePushConfig } from "./queue.config";
 import AWS from 'aws-sdk';
+import { QueueHandlerRegistry } from "./queue.config";
 
-const sqs = new AWS.SQS({
-  region: process.env.AWS_REGION || 'us-east-1',
-});
+
 
 export class QueueManager {
 
   private static instance: QueueManager;
   private static handlers: Map<string, (msg: AWS.SQS.Message) => Promise<void>> = new Map();
-  private static queuePollStatus: Map<string, boolean> = new Map();
+  private sqs: AWS.SQS;
+  private registry: QueueHandlerRegistry;
+
+  constructor() {
+    this.sqs = new AWS.SQS({
+      region: Config.AWS_REGION,
+    });
+    this.registry = QueueHandlerRegistry.getInstance();
+
+  }
 
   public static getInstance(): QueueManager {
     if (!QueueManager.instance) {
@@ -27,9 +35,10 @@ export class QueueManager {
 
   private async startPollingOfHandlers() {
     const queueUrls = new Set<string>();
+    const queueHandlers = this.registry.getHandlers();
     for (const [event, config] of Object.entries(queueHandlers)) {
       QueueManager.handlers.set(event, config.callback(config.instance));
-      const queueUrl = await this._getQueueUrl(queuePushConfig[event]);
+      const queueUrl = await this._getQueueUrl(config.queueName);
       queueUrls.add(queueUrl);
     }
 
@@ -42,7 +51,7 @@ export class QueueManager {
     // queue url will be taken based on the event name
 
     const body = JSON.stringify({ event, ...payload });
-    const queueName = queuePushConfig[event];
+    const queueName = this.registry.getPushQueue(event);
     const url = await this._getQueueUrl(queueName);
 
     const params: AWS.SQS.SendMessageRequest = {
@@ -56,7 +65,7 @@ export class QueueManager {
     }
 
     try {
-      const result = await sqs.sendMessage(params).promise();
+      const result = await this.sqs.sendMessage(params).promise();
       console.log(`[QueueManager] Message sent to ${url}: ${result.MessageId}`);
     } catch (err) {
       console.error('[QueueManager] Error sending message:', err);
@@ -68,7 +77,7 @@ export class QueueManager {
 
     const pollLoop = async () => {
       try {
-        const data = await sqs.receiveMessage({
+        const data = await this.sqs.receiveMessage({
           QueueUrl: queueUrl,
           MaxNumberOfMessages: 10,
           WaitTimeSeconds: 10,
@@ -107,7 +116,7 @@ export class QueueManager {
 
   private async _delete(queueUrl: string, receiptHandle: string): Promise<void> {
     try {
-      await sqs.deleteMessage({
+      await this.sqs.deleteMessage({
         QueueUrl: queueUrl,
         ReceiptHandle: receiptHandle,
       }).promise();
@@ -118,7 +127,7 @@ export class QueueManager {
 
   private async _getQueueUrl(queueName: string): Promise<string> {
     try {
-      const result = await sqs.getQueueUrl({ QueueName: queueName }).promise();
+      const result = await this.sqs.getQueueUrl({ QueueName: queueName }).promise();
       return result.QueueUrl!;
     } catch (error) {
       console.error(`[QueueManager] Failed to get URL for queue "${queueName}":`, error);

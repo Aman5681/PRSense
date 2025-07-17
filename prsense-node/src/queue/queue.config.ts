@@ -1,28 +1,50 @@
+// src/queue/QueueHandlerRegistry.ts
+
 import { QueueEventHandler } from "../services/QueueEventHandler";
 import { EventName, EventNameForPush } from "../constants/EventNames";
+import { Config } from "../config";
+import AWS from 'aws-sdk';
 
-const queueEventHandler = QueueEventHandler.getInstance();
-
-export interface IQueueConfig {
+type QueueHandler = {
   instance: any;
   queueName: string;
-  callback: any;
-}
+  callback: (instance: any) => (msg: AWS.SQS.Message) => Promise<void>;
+};
 
-export const queueHandlers: Record<EventName, { instance: any; queueName: string; callback: (instance: any) => (msg: AWS.SQS.Message) => Promise<void> }> = {
-  [EventName.EMBEDDING_RESULT]: {
-    instance: queueEventHandler,
-    queueName: process.env.EMBEDDING_RESULT_QUEUE_URL,
-    callback: (i) => i.handleEmbeddingResult,
-  },
-  [EventName.CHUNK]: {
-    instance: queueEventHandler,
-    queueName: process.env.CHUNK_QUEUE_URL,
-    callback: (i) => i.handleEmbeddingResult,
+export class QueueHandlerRegistry {
+  private static _instance: QueueHandlerRegistry;
+  private queueEventHandler = QueueEventHandler.getInstance();
+
+  private handlers: Record<EventName, QueueHandler> = {
+    [EventName.EMBEDDING_RESULT]: {
+      instance: this.queueEventHandler,
+      queueName: Config.NODEJS_SERVICE_QUEUE,
+      callback: (i) => i.handleEmbeddingResult,
+    },
+    [EventName.CHUNK]: {
+      instance: this.queueEventHandler,
+      queueName: Config.NODEJS_SERVICE_QUEUE,
+      callback: (i) => i.handleEmbeddingResult,
+    }
+  };
+
+  private pushConfig: Record<EventNameForPush, string> = {
+    [EventNameForPush.CHUNK]: Config.NODEJS_SERVICE_QUEUE,
+    [EventNameForPush.ANALYZE_PR]: Config.NODEJS_SERVICE_QUEUE,
+  };
+
+  static getInstance(): QueueHandlerRegistry {
+    if (!this._instance) {
+      this._instance = new QueueHandlerRegistry();
+    }
+    return this._instance;
   }
-};
 
-export const queuePushConfig: Record<EventNameForPush, string> = {
-  [EventNameForPush.CHUNK]: 'SERVICE_QUEUE_URL',
-  [EventNameForPush.ANALYZE_PR]: 'SERVICE_QUEUE_URL'
-};
+  getHandlers(): Record<EventName, QueueHandler> {
+    return this.handlers;
+  }
+
+  getPushQueue(event: EventNameForPush): string {
+    return this.pushConfig[event];
+  }
+}

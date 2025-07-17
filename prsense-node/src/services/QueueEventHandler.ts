@@ -10,7 +10,7 @@ export class QueueEventHandler {
     }
     return QueueEventHandler.instance;
   }
-  async handleEmbeddingResult(msg: SQS.Message) {
+  public async handleEmbeddingResult(msg: SQS.Message) {
     const body = JSON.parse(msg.Body || '{}');
     console.log('[EmbeddingResultHandler] Handling EMBEDDING_RESULT:', body);
     // store embeddings in DB or trigger further flow

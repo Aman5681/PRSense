@@ -17,8 +17,7 @@
     "esModuleInterop": true
   },
   "include": [
-    "src/**/*.ts",
-    "src/constants"
+    "src/**/*.ts"
   ],
   "compileOnSave": false,
   "exclude": [
