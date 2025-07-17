@@ -1,0 +1,7 @@
+boto3==1.34.108           # For AWS SQS integration
+pymongo==4.6.3            # For MongoDB operations
+openai==1.30.1            # Or replace with your LLM provider
+tqdm==4.66.4              # Progress bar for batch processing
+numpy==1.26.4             # For handling embeddings as arrays
+scikit-learn==1.5.0       # (Optional) For cosine similarity, etc.
+tenacity==8.2.3           # Retry logic if needed for LLM APIs
