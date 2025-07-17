@@ -12,6 +12,7 @@ export class QueueManager {
 
   private static instance: QueueManager;
   private static handlers: Map<string, (msg: AWS.SQS.Message) => Promise<void>> = new Map();
+  private static queuePollStatus: Map<string, boolean> = new Map();
 
   public static getInstance(): QueueManager {
     if (!QueueManager.instance) {
@@ -21,20 +22,19 @@ export class QueueManager {
   }
 
   public async init() {
-
-    for (const [event, config] of Object.entries(queueHandlers)) {
-      QueueManager.handlers.set(event, config.callback(config.instance));
-    }
-
     await this.startPollingOfHandlers();
   }
 
   private async startPollingOfHandlers() {
-    for (const [event, handler] of QueueManager.handlers) {
-      const queueUrl = await this._getQueueUrl(event);
-      if (queueUrl) {
-        await this.poll(queueUrl, handler)
-      }
+    const queueUrls = new Set<string>();
+    for (const [event, config] of Object.entries(queueHandlers)) {
+      QueueManager.handlers.set(event, config.callback(config.instance));
+      const queueUrl = await this._getQueueUrl(queuePushConfig[event]);
+      queueUrls.add(queueUrl);
+    }
+
+    for (const queueUrl of queueUrls) {
+      await this.poll(queueUrl); // only once per queue
     }
   }
 
@@ -63,7 +63,7 @@ export class QueueManager {
     }
   }
 
-  public async poll(queueUrl: string, handler: (msg: AWS.SQS.Message) => Promise<void>): Promise<void> {
+  public async poll(queueUrl: string): Promise<void> {
     console.log(`[QueueManager] Started polling queue: ${queueUrl}`);
 
     const pollLoop = async () => {
@@ -78,9 +78,17 @@ export class QueueManager {
         if (data.Messages && data.Messages.length > 0) {
           for (const message of data.Messages) {
             try {
+
+              const parsed = JSON.parse(message.Body || '{}');
+              const event = parsed.event;
+              const handler = QueueManager.handlers.get(event);
+
               if (handler) {
                 await handler(message);
                 await this._delete(queueUrl, message.ReceiptHandle!);
+              }
+              else {
+                console.warn(`[QueueManager] No handler found for event: ${event}`);
               }
             } catch (e) {
               console.error('[QueueManager] Failed to process message:', e);
