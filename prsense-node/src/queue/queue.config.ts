@@ -21,11 +21,11 @@ export class QueueHandlerRegistry {
       queueName: Config.NODEJS_SERVICE_QUEUE,
       callback: (i) => i.handleEmbeddingResult,
     },
-    [EventName.CHUNK]: {
-      instance: this.queueEventHandler,
-      queueName: Config.NODEJS_SERVICE_QUEUE,
-      callback: (i) => i.handleEmbeddingResult,
-    }
+    // [EventName.CHUNK]: {
+    //   instance: this.queueEventHandler,
+    //   queueName: Config.NODEJS_SERVICE_QUEUE,
+    //   callback: (i) => i.handleEmbeddingResult,
+    // }
   };
 
   private pushConfig: Record<EventNameForPush, string> = {
