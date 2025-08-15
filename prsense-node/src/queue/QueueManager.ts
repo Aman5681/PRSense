@@ -1,11 +1,9 @@
 import { Config } from "../config";
 import { EventNameForPush } from "../constants/EventNames";
-import { IPayloadForPush } from "../constants/Interfaces";
+import { EventPayloadMap } from "../constants/Interfaces";
 import { Utils } from "../utils/Utils";
 import AWS from 'aws-sdk';
 import { QueueHandlerRegistry } from "./queue.config";
-
-
 
 export class QueueManager {
 
@@ -37,7 +35,8 @@ export class QueueManager {
     const queueUrls = new Set<string>();
     const queueHandlers = this.registry.getHandlers();
     for (const [event, config] of Object.entries(queueHandlers)) {
-      QueueManager.handlers.set(event, config.callback(config.instance));
+      const boundHandler = config.callback(config.instance).bind(config.instance);
+      QueueManager.handlers.set(event, boundHandler);
       const queueUrl = await this._getQueueUrl(config.queueName);
       queueUrls.add(queueUrl);
     }
@@ -47,7 +46,7 @@ export class QueueManager {
     }
   }
 
-  public async pushMessageToQueue(event: EventNameForPush, payload: IPayloadForPush, isFifo = false) {
+  public async pushMessageToQueue<T extends EventNameForPush>(event: T, payload: EventPayloadMap[T], isFifo = false) {
     // queue url will be taken based on the event name
 
     const body = JSON.stringify({ event, ...payload });
@@ -60,8 +59,8 @@ export class QueueManager {
     };
 
     if (isFifo) {
-      params.MessageGroupId = payload.groupId || 'defaultGroup';
-      params.MessageDeduplicationId = payload.deduplicationId || Utils.getUuid();
+      params.MessageGroupId = (payload as any).groupId || "defaultGroup";
+      params.MessageDeduplicationId = (payload as any).deduplicationId || Utils.getUuid();
     }
 
     try {
@@ -93,7 +92,7 @@ export class QueueManager {
               const handler = QueueManager.handlers.get(event);
 
               if (handler) {
-                await handler(message);
+                await handler(parsed);
                 await this._delete(queueUrl, message.ReceiptHandle!);
               }
               else {
