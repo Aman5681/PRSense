@@ -18,19 +18,20 @@ export class QueueHandlerRegistry {
   private handlers: Record<EventName, QueueHandler> = {
     [EventName.EMBEDDING_RESULT]: {
       instance: this.queueEventHandler,
-      queueName: Config.NODEJS_SERVICE_QUEUE,
+      queueName: Config.PYTHON_SERVICE_QUEUE,
       callback: (i) => i.handleEmbeddingResult,
     },
-    // [EventName.CHUNK]: {
-    //   instance: this.queueEventHandler,
-    //   queueName: Config.NODEJS_SERVICE_QUEUE,
-    //   callback: (i) => i.handleEmbeddingResult,
-    // }
+    [EventName.START_CHUNKING]: {
+      instance: this.queueEventHandler,
+      queueName: Config.NODEJS_SERVICE_QUEUE,
+      callback: (i) => i.startChunking,
+    }
   };
 
   private pushConfig: Record<EventNameForPush, string> = {
     [EventNameForPush.CHUNK]: Config.NODEJS_SERVICE_QUEUE,
     [EventNameForPush.ANALYZE_PR]: Config.NODEJS_SERVICE_QUEUE,
+    [EventNameForPush.START_CHUNKING]: Config.NODEJS_SERVICE_QUEUE
   };
 
   static getInstance(): QueueHandlerRegistry {
