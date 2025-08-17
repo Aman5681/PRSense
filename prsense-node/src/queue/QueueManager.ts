@@ -17,7 +17,6 @@ export class QueueManager {
       region: Config.AWS_REGION,
     });
     this.registry = QueueHandlerRegistry.getInstance();
-
   }
 
   public static getInstance(): QueueManager {

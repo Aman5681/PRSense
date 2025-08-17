@@ -7,6 +7,7 @@ export type EventPayloadMap = {
     chunk: string; // temp
     fileName: string;
     fileExtension: string;
+    relativePath: string;
     groupId?: string;
     deduplicationId?: string;
   }
