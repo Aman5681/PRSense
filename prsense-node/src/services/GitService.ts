@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import dotenv from 'dotenv';
 import { Config } from '../config';
+import { Utils } from '../utils/Utils';
+import { EventNameForPush } from '../constants/EventNames';
 
 dotenv.config();
 
@@ -62,20 +64,25 @@ export class GitService {
     return projectPath; // e.g., "dev-tools/mcp-service"
   }
 
-  public async clone(repoName: string, branch = 'master'): Promise<string> {
+  public async clone(repoName: string, branch = 'master'): Promise<void> {
     const project = await this.getProject(repoName);
     const repoUrl = this.getRepoUrl(project);
     const dest = this.getDestinationPath(repoName);
 
     if (fs.existsSync(dest)) {
       console.log(`[GitService] Repo already exists at: ${dest}`);
-      return dest;
+      return await this.sendStartChunkingMethod(repoName);
     }
 
     console.log(`[GitService] Cloning ${repoUrl} → ${dest}`);
     await this.git.clone(repoUrl, dest, ['--branch', branch, '--single-branch']);
     console.log('[GitService] Clone successful.');
-    return dest;
+    return await this.sendStartChunkingMethod(repoName);
+  }
+
+  private async sendStartChunkingMethod(repoName) {
+    await Utils.pushMessageToQueue(EventNameForPush.START_CHUNKING, { repoName });
+
   }
 
   public async pull(repoName: string): Promise<void> {

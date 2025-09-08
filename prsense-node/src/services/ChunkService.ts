@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { EventName, EventNameForPush } from "../constants/EventNames";
+import { EventNameForPush } from "../constants/EventNames";
 import { encoding_for_model, Tiktoken } from "@dqbd/tiktoken";
 import { Utils } from "../utils/Utils";
 
@@ -24,16 +24,6 @@ export class ChunkService {
     return this.instance;
   }
 
-  private getAllFiles(dir: string, allFiles: { fileName: string, filePath: string }[] = []): Array<{ fileName: string, filePath: string }> {
-    const entries = fs.readdirSync(dir, { withFileTypes: true, recursive: true });
-    for (const entry of entries) {
-      const fullPath = path.join(entry.path, entry.name);
-      const ext = path.extname(entry.name).toLowerCase();
-      if (allowedExts.includes(ext)) allFiles.push({ fileName: entry.name, filePath: fullPath });
-    }
-    return allFiles
-  }
-
   public async startChunking(payload: { repoName: string }) {
     const repoPath = path.resolve('repos', payload.repoName);
     const files = this.getAllFiles(repoPath);
@@ -52,13 +42,22 @@ export class ChunkService {
           const chunks = this.chunkByTokens(content, 400);
 
           for (const chunk of chunks) {
-            await new Promise(resolve => setTimeout(resolve, 100));
             await Utils.pushMessageToQueue(EventNameForPush.CHUNK, { chunk, fileName: file.fileName, fileExtension, relativePath });
           }
         })
       )
     }
 
+  }
+
+  private getAllFiles(dir: string, allFiles: { fileName: string, filePath: string }[] = []): Array<{ fileName: string, filePath: string }> {
+    const entries = fs.readdirSync(dir, { withFileTypes: true, recursive: true });
+    for (const entry of entries) {
+      const fullPath = path.join(entry.path, entry.name);
+      const ext = path.extname(entry.name).toLowerCase();
+      if (allowedExts.includes(ext)) allFiles.push({ fileName: entry.name, filePath: fullPath });
+    }
+    return allFiles
   }
 
   private chunkByTokens(text: string, maxTokens: number, overlap: number = 30): string[] {

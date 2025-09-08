@@ -1,8 +1,5 @@
 import { Request, Response } from 'express';
 import { GitService } from '../services/GitService';
-import { ChunkService } from '../services/ChunkService';
-import { Utils } from '../utils/Utils';
-import { EventNameForPush } from '../constants/EventNames';
 
 export class GitController {
 
@@ -14,7 +11,6 @@ export class GitController {
       const branch = req.params.branch;
 
       await this.gitService.clone(repoName, branch);
-      await Utils.pushMessageToQueue(EventNameForPush.START_CHUNKING, { repoName });
 
       res.status(200).json({ message: 'Repository cloned and chunking started.' });
     } catch (error) {

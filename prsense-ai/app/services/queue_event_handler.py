@@ -1,9 +1,19 @@
 from constants.event_name import EventNameForPush
-
+from queues.queue_manager import QueueManager
 class QueueEventHandler:
-    def __init__(self, queue_manager=None):
-        self.queue_manager = queue_manager  # Will be set after instantiation
 
+    _instance = None
+
+    def __call__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(QueueEventHandler).__call__(*args, **kwargs)
+        return cls._instance
+    
+    def __init__(self, queue_manager=None):
+        if hasattr(self, "_initialized") and self._initialized:
+            return  # prevent reinit on singleton
+        self.queue_manager = QueueManager(self)
+    
     async def handle_chunk(self, payload):
         print('[QueueEventHandler] Handling CHUNK:', payload)
         # Simulate processing...
@@ -19,6 +29,3 @@ class QueueEventHandler:
             )
             print("[QueueEventHandler] Pushed embedding result event.")
 
-    async def handle_embedding_result(self, payload):
-        print('[QueueEventHandler] Handling EMBEDDING_RESULT:', payload)
-        # Add your embedding result processing logic here 

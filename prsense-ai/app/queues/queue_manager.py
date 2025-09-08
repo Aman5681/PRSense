@@ -1,28 +1,36 @@
 import boto3
 import json
 import asyncio
-from config import Config
-from queues.queue_push_config import PushConfig
+from config import EnvConfig
+from queues.queue_config import Config
+from botocore.client import BaseClient
 
 class QueueManager:
-    def __init__(self, registry):
-        self.sqs = boto3.client(
+
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(QueueManager, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, ):
+        self.sqs: BaseClient = boto3.client(
             'sqs',
-            region_name=Config.AWS_REGION,
-            aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY
+            region_name=EnvConfig.AWS_REGION,
+            aws_access_key_id=EnvConfig.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=EnvConfig.AWS_SECRET_ACCESS_KEY
         )
-        self.push_config = PushConfig()
-        self.registry = registry
+        self.config = Config()
         self.polling = False
 
     async def init(self):
         # Start polling for all queues in config
-        queue_names = set(self.push_config.config.values())
+        queue_names = set(self.config.listenConfig.values())
         await asyncio.gather(*(self.poll(queue_name) for queue_name in queue_names))
 
     async def push_message_to_queue(self, event, payload):
-        queue_name = self.push_config.get_queue_name(event)
+        queue_name = self.config.get_queue_name(event)
         if not queue_name:
             raise ValueError(f"No queue mapped for event {event}")
         queue_url = self.sqs.get_queue_url(QueueName=queue_name)['QueueUrl']
@@ -51,7 +59,7 @@ class QueueManager:
                 try:
                     body = json.loads(message['Body'])
                     event = body.get('event')
-                    handler = self.registry.get_handler(event)
+                    handler = self.config.get_handler(event)
                     if handler:
                         await handler(body)
                         self.sqs.delete_message(
